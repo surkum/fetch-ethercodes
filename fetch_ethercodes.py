@@ -45,7 +45,7 @@ License:
 # vim:set et ts=8 sw=4:
 #
 
-__version__ = '0.5'
+__version__ = '0.6'
 __author__ = 'Hans-Peter Jansen'
 __email__ = '<hpj@urpla.net>'
 __license__ = 'MIT'
@@ -81,7 +81,7 @@ class gpar:
     keep = False
     timestamp = False
     deltat = 2.5
-    ouifile = 'http://standards-oui.ieee.org/oui/oui.csv'
+    ouifile = 'https://standards-oui.ieee.org/oui/oui.csv'
     outfile = 'ethercodes.dat'
     patchfile = None
 
