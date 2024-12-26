@@ -125,44 +125,55 @@ def code_key(val):
 def fetch_infile(infile):
     # check oui.csv parameter
     vout(1, 'check {ouifile}')
-    req = urllib.request.urlopen(gpar.ouifile)
-    vout(3, 'header info: {}'.format(req.info()))
-    header = req.info()
-    ouisize = int(header['Content-Length'])
-    vout(1, 'oui file size: {}'.format(ouisize))
-    ouidate = header['Last-Modified']
-    vout(1, 'oui file date: {}'.format(ouidate))
-    ouidate = email.utils.parsedate(ouidate)
-    ouitime = time.mktime(ouidate)
-    vout(3, 'parsed oui file date: {} ({})'.format(
-            time.asctime(ouidate), ouitime))
 
-    # check, if local oui.csv is outdated
+    # Configura la solicitud con un encabezado User-Agent personalizado
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Referer': 'https://www.google.com',  # Opcional, para simular una búsqueda previa
+    }
+
+    # Crea una solicitud con los encabezados
+    req = urllib.request.Request(gpar.ouifile, headers=headers)
+
+    # Descarga el archivo
+    with urllib.request.urlopen(req) as response:
+        vout(3, 'header info: {}'.format(response.info()))
+        ouisize = int(response.info()['Content-Length'])
+        vout(1, 'oui file size: {}'.format(ouisize))
+        ouidate = response.info()['Last-Modified']
+        vout(1, 'oui file date: {}'.format(ouidate))
+        ouidate = email.utils.parsedate(ouidate)
+        ouitime = time.mktime(ouidate)
+
+        # Guarda el archivo temporalmente
+        temp_file = f"{infile}.tmp"
+        with open(temp_file, 'wb') as f:
+            f.write(response.read())
+
+    # Verifica si el archivo local necesita ser actualizado
     fetchoui = False
     if gpar.force:
         fetchoui = True
     elif not os.path.exists(infile):
-        vout(1, 'no local file {infile} found')
+        vout(1, f'no local file {infile} found')
         fetchoui = True
     elif os.path.getsize(infile) != ouisize:
-        vout(1, 'local file size differs: {} vs. {} remote'.format(
-                os.path.getsize(infile), ouisize))
+        vout(1, f'local file size differs: {os.path.getsize(infile)} vs. {ouisize} remote')
         fetchoui = True
     elif not cmp_ts(os.stat(infile).st_mtime, ouitime):
-        vout(3, str(os.stat(infile).st_mtime))
-        vout(3, str(ouitime))
-        mtime = time.localtime(os.stat(infile).st_mtime)
-        otime = time.localtime(ouitime)
-        vout(1, 'local file date differs: {} vs. {} remote'.format(
-                time.asctime(mtime), time.asctime(otime)))
+        vout(1, f'local file date differs: {time.asctime(time.localtime(os.stat(infile).st_mtime))} vs. {time.asctime(time.localtime(ouitime))}')
         fetchoui = True
-    # fetch oui.csv
-    if fetchoui:
-        vout(1, 'fetch {ouifile}')
-        open(infile, 'wb').write(req.read())
-        os.utime(infile, (ouitime, ouitime))
 
-    return ouidate
+    # Reemplaza el archivo si es necesario
+    if fetchoui:
+        os.rename(temp_file, infile)
+        os.utime(infile, (ouitime, ouitime))
+        vout(1, f'Archivo actualizado: {infile}')
+    else:
+        os.remove(temp_file)
+
+    return time.localtime(ouitime)
 
 
 def parse_csv(infile):
